@@ -1,0 +1,11 @@
+<!-- ic_close.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:tint="#FFFFFF"
+    android:viewportWidth="24.0"
+    android:viewportHeight="24.0">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M14.59,13L12,15.59L9.41,13L8,14.41L10.59,17L8,19.59L9.41,21L12,18.41L14.59,21L16,19.59L13.41,17L16,14.41L14.59,13z" />
+</vector>

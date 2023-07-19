@@ -11,28 +11,38 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.os.IBinder
-import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import org.bugm.borg.AppInitialization.NOTIFICATION_CHANNEL_ID
+import org.bugm.borg.AppInitialization.NOTIFICATION_ID
+import org.bugm.borg.AppInitialization.PREFS_SELECTED_FILES
 
 class ScreenUnlockForegroundService : Service() {
 
-    private lateinit var windowManager: WindowManager
+    private lateinit var selectedFiles: MutableList<SelectedFile>
 
     companion object {
-        private const val NOTIFICATION_CHANNEL_ID = "org.bugm.borg.notification_channel"
-        private const val NOTIFICATION_ID = 1
+        // Method to start the service with selectedFiles as an argument
+        fun startService(context: Context, selectedFiles: List<SelectedFile>) {
+            val intent = Intent(context, ScreenUnlockForegroundService::class.java)
+            intent.putParcelableArrayListExtra(PREFS_SELECTED_FILES, ArrayList(selectedFiles))
+            ContextCompat.startForegroundService(context, intent)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Retrieve the selected files from the intent
+        selectedFiles =
+            intent?.getParcelableArrayListExtra(PREFS_SELECTED_FILES, SelectedFile::class.java)
+                ?: mutableListOf()
+
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification())
+        return START_REDELIVER_INTENT
     }
 
     override fun onCreate() {
         super.onCreate()
-        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        showReminderActivity()
-
-        // Create a notification channel (Required for Android 8.0 and above)
-        createNotificationChannel()
-
-        // Display the notification and start the service as a foreground service
-        startForeground(NOTIFICATION_ID, createNotification())
         registerScreenUnlockReceiver()
     }
 
@@ -82,6 +92,7 @@ class ScreenUnlockForegroundService : Service() {
 
     private fun showReminderActivity() {
         val intent = Intent(this, ReminderActivity::class.java)
+        intent.putParcelableArrayListExtra(PREFS_SELECTED_FILES, ArrayList(selectedFiles))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
     }

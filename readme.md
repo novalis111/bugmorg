@@ -13,7 +13,7 @@ the ADHD brain hopefully responds to.
 
 ## Usage
 
-Install, grant permissions and disable battery saving. BugmOrg runs a background service, that 
+Install, grant permissions, grant overlay and disable battery saving. BugmOrg runs a background service, that 
 shows a splash screen every time you unlock your phone. It does not offer editing 
 tasks, you need to use another app for that. I recommend [Orgzly](https://orgzly.com/) for adding, 
 editing and checking off tasks. In combination these apps provide a simple but flexible way to 

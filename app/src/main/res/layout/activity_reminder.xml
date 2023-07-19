@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:gravity="center_horizontal|center_vertical"
+    android:orientation="vertical"
+    android:padding="16pt">
 
-    <!-- Add your reminder content here (e.g., text, image, buttons, etc.) -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
+        android:layout_gravity="center_horizontal"
+        android:fontFamily="sans-serif-condensed"
         android:text="We will, we will... bug you."
         android:textSize="24sp" />
 
@@ -16,10 +19,12 @@
         android:id="@+id/btnClose"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_margin="16dp"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginVertical="16dp"
+        android:background="@color/button"
+        android:paddingHorizontal="@dimen/btn_horizontal"
+        android:paddingVertical="@dimen/btn_vertical"
         android:text="Maybe later" />
 
-</RelativeLayout>
+</LinearLayout>
 

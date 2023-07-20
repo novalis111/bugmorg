@@ -95,13 +95,17 @@ class MainActivity : AppCompatActivity() {
                             for (i in 0 until clipData.itemCount) {
                                 val fileUri = clipData.getItemAt(i).uri
                                 val fileName = getFileName(fileUri)
-                                selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
+                                if (!fileAlreadyExists(fileName)) {
+                                    selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
+                                }
                             }
                         } else {
                             val uri = it.data
                             uri?.let { it1 ->
                                 val fileName = getFileName(it1)
-                                selectedFiles.add(SelectedFile(it1.toString(), fileName))
+                                if (!fileAlreadyExists(fileName)) {
+                                    selectedFiles.add(SelectedFile(it1.toString(), fileName))
+                                }
                             }
                         }
                         fileAdapter.notifyDataSetChanged()
@@ -123,6 +127,15 @@ class MainActivity : AppCompatActivity() {
             filePickerLauncher.launch(Intent.createChooser(pickIntent, "Select Files"))
         }
 
+    }
+
+    private fun fileAlreadyExists(fileName: String): Boolean {
+        for (file in selectedFiles) {
+            if (file.name == fileName) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun requestOverlayPermission() {

@@ -23,6 +23,7 @@
             android:id="@+id/buttonLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center"
             android:orientation="vertical"
             android:padding="16dp"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -34,13 +35,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@color/button"
+                android:paddingHorizontal="@dimen/btn_horizontal"
+                android:paddingVertical="@dimen/btn_vertical"
                 android:text="@string/select_orgmode_files" />
 
-            <Button
-                android:id="@+id/parseFilesButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Parse Files" />
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

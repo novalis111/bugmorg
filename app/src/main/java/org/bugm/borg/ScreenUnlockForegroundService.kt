@@ -22,30 +22,23 @@ class ScreenUnlockForegroundService : Service() {
     private lateinit var selectedFiles: MutableList<SelectedFile>
 
     companion object {
-        // Method to start the service with selectedFiles as an argument
-        fun startService(context: Context, selectedFiles: List<SelectedFile>) {
+        fun startService(context: Context) {
             val intent = Intent(context, ScreenUnlockForegroundService::class.java)
-            intent.putParcelableArrayListExtra(PREFS_SELECTED_FILES, ArrayList(selectedFiles))
             ContextCompat.startForegroundService(context, intent)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Retrieve the selected files from the intent
-        selectedFiles =
-            intent?.getParcelableArrayListExtra(PREFS_SELECTED_FILES, SelectedFile::class.java)
-                ?: mutableListOf()
-
+        selectedFiles = getSelectedFilesFromSharedPreferences(this)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
-        return START_REDELIVER_INTENT
+        return START_STICKY
     }
 
     override fun onCreate() {
         super.onCreate()
         registerScreenUnlockReceiver()
     }
-
 
     private fun createNotificationChannel() {
         val channelName = "Foreground Service Channel"
@@ -92,7 +85,6 @@ class ScreenUnlockForegroundService : Service() {
 
     private fun showReminderActivity() {
         val intent = Intent(this, ReminderActivity::class.java)
-        intent.putParcelableArrayListExtra(PREFS_SELECTED_FILES, ArrayList(selectedFiles))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
     }

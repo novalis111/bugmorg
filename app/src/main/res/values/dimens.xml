@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="btn_horizontal">64sp</dimen>
+    <dimen name="btn_horizontal">24sp</dimen>
     <dimen name="btn_vertical">14sp</dimen>
     <dimen name="btn_margin">8sp</dimen>
 </resources>

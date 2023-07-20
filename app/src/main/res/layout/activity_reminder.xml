@@ -7,11 +7,11 @@
     android:padding="16pt">
 
     <TextView
+        android:id="@+id/reminderTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:fontFamily="sans-serif-condensed"
-        android:text="We will, we will... bug you."
         android:textSize="24sp" />
 
     <!-- Close button -->

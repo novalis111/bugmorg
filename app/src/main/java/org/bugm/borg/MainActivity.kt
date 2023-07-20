@@ -57,36 +57,33 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
-            // Permission granted, start the service
-            startScreenUnlockService()
+            val foo = "bar"
         } else {
             // Permission denied, handle accordingly (show a message, etc.)
         }
     }
 
+    private fun updateServiceWithSelectedFiles(selectedFiles: List<SelectedFile>) {
+        // Save the latest selected files to SharedPreferences
+        saveSelectedFilesToSharedPreferences(this, selectedFiles)
+
+        // Update the service with the latest selected files (if needed)
+        ScreenUnlockForegroundService.startService(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        selectedFiles = mutableListOf()
 
         // Check and request the SYSTEM_ALERT_WINDOW permission on devices with Android 12 (API 31) and above
         requestOverlayPermission()
 
         // Init file adapter and recycler view for selected files
+        selectedFiles = getSelectedFilesFromSharedPreferences(this)
         fileAdapter = FileAdapter(selectedFiles)
         val recyclerView = findViewById<RecyclerView>(R.id.fileRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = fileAdapter
-
-        // Load previously selected files from SharedPreferences
-        val savedFilesJson =
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString(PREFS_SELECTED_FILES, null)
-
-        savedFilesJson?.let {
-            val type = object : TypeToken<List<SelectedFile>>() {}.type
-            selectedFiles.addAll(Gson().fromJson(it, type))
-            fileAdapter.notifyDataSetChanged()
-        }
 
         val filePickerLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -98,33 +95,25 @@ class MainActivity : AppCompatActivity() {
                             for (i in 0 until clipData.itemCount) {
                                 val fileUri = clipData.getItemAt(i).uri
                                 val fileName = getFileName(fileUri)
-
-                                // Check if the file is not already selected before adding it
-                                val selectedFile =
-                                    selectedFiles.find { it1 -> it1.uriString == fileUri.toString() }
-                                if (selectedFile == null) {
-                                    selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
-                                    fileAdapter.notifyItemInserted(selectedFiles.size - 1)
-                                }
+                                selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
                             }
                         } else {
                             val uri = it.data
                             uri?.let { it1 ->
                                 val fileName = getFileName(it1)
-
-                                // Check if the file is not already selected before adding it
-                                val selectedFile =
-                                    selectedFiles.find { it2 -> it2.uriString == uri.toString() }
-                                if (selectedFile == null) {
-                                    selectedFiles!!.add(SelectedFile(uri.toString(), fileName))
-                                    fileAdapter.notifyItemInserted(selectedFiles.size - 1)
-                                }
+                                selectedFiles.add(SelectedFile(it1.toString(), fileName))
                             }
                         }
+                        fileAdapter.notifyDataSetChanged()
+
+                        // Save the selected files directly to SharedPreferences
+                        saveSelectedFilesToSharedPreferences(this, selectedFiles)
+
+                        // Update the service with the latest selected files when a file is added
+                        ScreenUnlockForegroundService.startService(this)
                     }
                 }
             }
-
 
         val pickIntent = Intent(Intent.ACTION_GET_CONTENT)
         pickIntent.type = "text/*"
@@ -142,16 +131,8 @@ class MainActivity : AppCompatActivity() {
             intent.data = Uri.parse("package:$packageName")
             requestOverlayPermissionLauncher.launch(intent)
         } else {
-            startScreenUnlockService()
+            ScreenUnlockForegroundService.startService(this)
         }
-    }
-
-    private fun startScreenUnlockService() {
-        val serviceIntent = Intent(this, ScreenUnlockForegroundService::class.java)
-        serviceIntent.putParcelableArrayListExtra(
-            PREFS_SELECTED_FILES, ArrayList(selectedFiles)
-        )
-        startForegroundService(serviceIntent)
     }
 
     override fun onDestroy() {

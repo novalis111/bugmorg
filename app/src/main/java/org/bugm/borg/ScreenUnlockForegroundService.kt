@@ -93,8 +93,9 @@ class ScreenUnlockForegroundService : Service() {
 
         val notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher).setContentTitle("BugmOrg Service")
-            .setContentText("Running in the background").setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_MIN).setOngoing(false).setAutoCancel(true)
+            .setContentText("Watching " + selectedFiles.size.toString() + " files for Tasks")
+            .setContentIntent(pendingIntent).setPriority(NotificationCompat.PRIORITY_MIN)
+            .setOngoing(false).setAutoCancel(true)
 
         return notificationBuilder.build()
     }

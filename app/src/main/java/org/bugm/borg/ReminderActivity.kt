@@ -8,6 +8,7 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.datatransport.runtime.firebase.transport.TimeWindow
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -25,13 +26,19 @@ data class TaskItem(
     val description: String, val priority: String?, val tags: List<String>, val dueDate: String?
 )
 
+data class ContextTimeWindow(
+    val contextName: String,
+    val fromHour: Int,
+    val fromMinute: Int,
+    val toHour: Int,
+    val toMinute: Int
+)
+
 class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
     private lateinit var uris: ArrayList<Uri>
     private val taskItems = mutableListOf<TaskItem>()
-    private var isParsingComplete = false
-    private var cachedTaskItemsTimestamp: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

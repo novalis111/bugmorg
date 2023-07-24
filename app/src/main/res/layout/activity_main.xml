@@ -43,6 +43,7 @@
                 android:id="@+id/clearCacheButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/btn_margin"
                 android:background="@color/button"
                 android:paddingHorizontal="@dimen/btn_horizontal"
                 android:paddingVertical="@dimen/btn_vertical"

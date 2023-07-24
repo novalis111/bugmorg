@@ -166,56 +166,6 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Cache cleaned successfully", Toast.LENGTH_SHORT).show()
     }
 
-    private val filePickerLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val data: Intent? = result.data
-
-                data?.data?.let { uri ->
-                    // Here, "uri" is the content URI of the selected file
-                    // You can read or parse the content using ContentResolver
-
-                    // Example: Read text content from the selected file
-                    val contentResolver = contentResolver
-                    val inputStream = contentResolver.openInputStream(uri)
-                    val text = inputStream?.bufferedReader().use { it?.readText() }
-                    inputStream?.close()
-
-                    // Now you have the text content from the selected file
-                    // Do whatever you need with it
-                    Log.d(TAG, text!!)
-                }
-
-                data?.let {
-                    val clipData = it.clipData
-                    if (clipData != null) {
-                        for (i in 0 until clipData.itemCount) {
-                            val fileUri = clipData.getItemAt(i).uri
-                            val fileName = getFileName(fileUri)
-                            if (!fileAlreadyExists(fileName)) {
-                                selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
-                            }
-                        }
-                    } else {
-                        val uri = it.data
-                        uri?.let { it1 ->
-                            val fileName = getFileName(it1)
-                            if (!fileAlreadyExists(fileName)) {
-                                selectedFiles.add(SelectedFile(it1.toString(), fileName))
-                            }
-                        }
-                    }
-                    fileAdapter.notifyDataSetChanged()
-
-                    // Save the selected files directly to SharedPreferences
-                    saveSelectedFilesToSharedPreferences(this, selectedFiles)
-
-                    // Update the service with the latest selected files when a file is added
-                    ScreenUnlockForegroundService.startService(this)
-                }
-            }
-        }
-
     private fun fileAlreadyExists(fileName: String): Boolean {
         for (file in selectedFiles) {
             if (file.name == fileName) {

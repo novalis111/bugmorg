@@ -39,6 +39,15 @@
                 android:paddingVertical="@dimen/btn_vertical"
                 android:text="@string/select_orgmode_files" />
 
+            <Button
+                android:id="@+id/clearCacheButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@color/button"
+                android:paddingHorizontal="@dimen/btn_horizontal"
+                android:paddingVertical="@dimen/btn_vertical"
+                android:text="@string/clear_cache" />
+
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

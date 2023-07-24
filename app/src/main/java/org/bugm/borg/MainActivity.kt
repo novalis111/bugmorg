@@ -3,6 +3,7 @@ package org.bugm.borg
 import android.app.Activity
 import android.Manifest
 import android.content.ContentValues.TAG
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -13,6 +14,7 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import android.view.View
+import android.widget.Button
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +29,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.bugm.borg.AppInitialization.PREFS_NAME
 import org.bugm.borg.AppInitialization.PREFS_SELECTED_FILES
+import org.bugm.borg.AppInitialization.PREFS_TASK_ITEMS
+import org.bugm.borg.AppInitialization.PREFS_TASK_ITEMS_TIMESTAMP
 import pub.devrel.easypermissions.AppSettingsDialog
 import pub.devrel.easypermissions.EasyPermissions
 import java.io.File
@@ -147,6 +151,19 @@ class MainActivity : AppCompatActivity() {
             openFilePicker()
         }
 
+        val btnCleanCache = findViewById<Button>(R.id.clearCacheButton)
+
+        // Set a click listener for the button
+        btnCleanCache.setOnClickListener {
+            // Call the cleanCache method to remove the cached task items
+            clearCache()
+        }
+    }
+
+    private fun clearCache() {
+        val prefs = getSharedPreferences(PREFS_TASK_ITEMS, Context.MODE_PRIVATE)
+        prefs.edit().remove(PREFS_TASK_ITEMS).remove(PREFS_TASK_ITEMS_TIMESTAMP).apply()
+        Toast.makeText(this, "Cache cleaned successfully", Toast.LENGTH_SHORT).show()
     }
 
     private val filePickerLauncher =

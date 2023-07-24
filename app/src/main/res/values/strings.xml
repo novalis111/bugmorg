@@ -3,4 +3,5 @@
     <string name="config">Config</string>
     <string name="select_orgmode_files">Select orgmode Files</string>
     <string name="remove">Remove</string>
+    <string name="clear_cache">Clear Task Cache</string>
 </resources>

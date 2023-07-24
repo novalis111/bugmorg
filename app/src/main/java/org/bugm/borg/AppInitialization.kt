@@ -7,6 +7,8 @@ object AppInitialization {
     const val NOTIFICATION_CHANNEL_ID = "org.bugmorg.notification_channel"
     const val NOTIFICATION_ID = 1
     const val PREFS_SELECTED_FILES = "org.bugmorg.selected_files"
+    const val PREFS_TASK_ITEMS = "org.bugmorg.task_items"
+    const val PREFS_TASK_ITEMS_TIMESTAMP = "org.bugmorg.task_items_timestamp"
     private const val KEY_APP_INITIALIZED = "app_initialized"
 
     fun init(context: Context) {

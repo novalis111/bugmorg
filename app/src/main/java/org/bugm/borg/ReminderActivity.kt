@@ -1,27 +1,25 @@
 package org.bugm.borg
 
 import android.content.ContentValues.TAG
-import android.Manifest
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.bugm.borg.AppInitialization.PREFS_TASK_ITEMS
+import org.bugm.borg.AppInitialization.PREFS_TASK_ITEMS_TIMESTAMP
 import java.util.Random
+import java.util.concurrent.TimeUnit
 
 data class TaskItem(
     val description: String, val priority: String?, val tags: List<String>, val dueDate: String?
@@ -32,27 +30,13 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
     private lateinit var uris: ArrayList<Uri>
     private val taskItems = mutableListOf<TaskItem>()
-
-    private val requestReadPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                // Permission granted, proceed with reading the files
-                val data: Intent? = result.data
-                data?.data?.let { uri ->
-                    coroutineScope.launch {
-                        parseFileContent(uri)
-                    }
-                }
-            } else {
-                // Permission denied or user canceled the permission request, handle the case appropriately
-            }
-        }
+    private var isParsingComplete = false
+    private var cachedTaskItemsTimestamp: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_reminder)
 
-        // selectedFiles = getSelectedFilesFromSharedPreferences(this)
         uris = intent.getParcelableArrayListExtra<Uri>("uris", Uri::class.java)
             ?.filterNotNull() as ArrayList<Uri>
 
@@ -67,9 +51,34 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private suspend fun setReminderText() {
-        coroutineScope.launch {
+        val prefs = getSharedPreferences(PREFS_TASK_ITEMS, Context.MODE_PRIVATE)
+
+        // Retrieve cached task items JSON and timestamp from SharedPreferences
+        val cachedTaskItemsJson = prefs.getString(PREFS_TASK_ITEMS, null)
+        val cachedTaskItemsTimestamp = prefs.getLong(PREFS_TASK_ITEMS_TIMESTAMP, 0)
+
+        // Check if the cached data is available and not expired (within 30 minutes)
+        val currentTimeMillis = System.currentTimeMillis()
+        val expirationTimeMillis = TimeUnit.MINUTES.toMillis(30)
+        if (!cachedTaskItemsJson.isNullOrEmpty() && (currentTimeMillis - cachedTaskItemsTimestamp) < expirationTimeMillis) {
+            // Cached data is still valid, parse the JSON and update taskItems
+            val listType = object : TypeToken<List<TaskItem>>() {}.type
+            val cachedTaskItems = Gson().fromJson<List<TaskItem>>(cachedTaskItemsJson, listType)
+            taskItems.clear()
+            taskItems.addAll(cachedTaskItems)
+            Log.d(TAG, "Using " + taskItems.size.toString() + " cached task items")
+        } else {
+            // Cached data has expired or doesn't exist, parse the files and update taskItems
             parseSelectedFiles()
-        }.join()
+
+            // Cache the parsed task items along with the current timestamp
+            val taskItemsJson = Gson().toJson(taskItems)
+            prefs.edit().putString(PREFS_TASK_ITEMS, taskItemsJson)
+                .putLong(PREFS_TASK_ITEMS_TIMESTAMP, currentTimeMillis).apply()
+
+            Log.d(TAG, "Parsed and cached " + taskItems.size.toString() + " task items")
+        }
+
         val reminderText = findViewById<TextView>(R.id.reminderTextView)
         reminderText.text = pickRandomItem(taskItems)
     }
@@ -85,7 +94,6 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private suspend fun parseFileContent(uri: Uri) = withContext(Dispatchers.IO) {
-        var collectedItems: List<TaskItem>
         val contentResolver = contentResolver
         val inputStream = contentResolver.openInputStream(uri)
         val orgFileContent = inputStream?.bufferedReader()?.use { it.readText() }
@@ -114,7 +122,7 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     private fun parsePriority(line: String): String? {
-        val priorityPattern = Regex("\\[([A-Z])\\]")
+        val priorityPattern = Regex("\\[([A-Z])]")
         val match = priorityPattern.find(line)
         return match?.groupValues?.get(1)
     }
@@ -134,15 +142,6 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         return null
     }
 
-    private fun pickRandomFile(selectedFiles: List<SelectedFile>): SelectedFile? {
-        return if (selectedFiles.isNotEmpty()) {
-            val randomIndex = Random().nextInt(selectedFiles.size)
-            selectedFiles[randomIndex]
-        } else {
-            null
-        }
-    }
-
     private fun pickRandomItem(taskItems: List<TaskItem>): String? {
         return if (taskItems.isNotEmpty()) {
             val randomIndex = Random().nextInt(taskItems.size)
@@ -156,32 +155,6 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         super.onDestroy()
         // Cancel the coroutine when the activity is destroyed to avoid leaks
         coroutineScope.cancel()
-    }
-
-    private fun requestReadPermission(uri: Uri) {
-        val intent =
-            Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
-                .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-
-        requestReadPermissionLauncher.launch(intent)
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, proceed with reading the files
-                // You can call the method to read the files here or handle it in the permission launcher result
-            } else {
-                // Permission denied, handle the case appropriately
-            }
-        }
-    }
-
-    companion object {
-        private const val PERMISSION_REQUEST_CODE = 100
     }
 
 }

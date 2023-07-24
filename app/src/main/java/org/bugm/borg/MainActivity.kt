@@ -1,22 +1,34 @@
 package org.bugm.borg
 
 import android.app.Activity
+import android.Manifest
+import android.content.ContentValues.TAG
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.provider.Settings
+import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.bugm.borg.AppInitialization.PREFS_NAME
 import org.bugm.borg.AppInitialization.PREFS_SELECTED_FILES
+import pub.devrel.easypermissions.AppSettingsDialog
+import pub.devrel.easypermissions.EasyPermissions
 import java.io.File
 
 data class SelectedFile(
@@ -53,6 +65,51 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectedFiles: MutableList<SelectedFile>
     private lateinit var fileAdapter: FileAdapter
 
+    companion object {
+        const val RC_PERMISSIONS = 123
+    }
+
+    private val permissions = arrayOf(
+        Manifest.permission.POST_NOTIFICATIONS,
+        Manifest.permission.FOREGROUND_SERVICE,
+        Manifest.permission.RECEIVE_BOOT_COMPLETED,
+        Manifest.permission.INTERNET,
+        Manifest.permission.SYSTEM_ALERT_WINDOW,
+        Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        Manifest.permission.MANAGE_MEDIA,
+        Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+        Manifest.permission.MANAGE_DOCUMENTS
+    )
+
+    private val requestReadPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data: Intent? = result.data
+            data?.data?.let { uri ->
+                val fileName = getFileName(uri)
+                if (!fileAlreadyExists(fileName)) {
+                    // Grant permanent permission to access this file
+                    grantPersistableUriPermission(uri)
+                    // Store in Prefs
+                    selectedFiles.add(SelectedFile(uri.toString(), fileName))
+                    fileAdapter.notifyDataSetChanged()
+                    saveSelectedFilesToSharedPreferences(this@MainActivity, selectedFiles)
+                    // Update the service with the latest selected files when a file is added
+                    ScreenUnlockForegroundService.startService(this@MainActivity)
+                }
+            }
+        } else {
+            // Permission denied or user canceled the permission request, handle the case appropriately
+        }
+    }
+
+    private fun grantPersistableUriPermission(uri: Uri) {
+        val takeFlags: Int =
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        contentResolver.takePersistableUriPermission(uri, takeFlags)
+    }
+
     private val requestOverlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -63,12 +120,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateServiceWithSelectedFiles(selectedFiles: List<SelectedFile>) {
-        // Save the latest selected files to SharedPreferences
-        saveSelectedFilesToSharedPreferences(this, selectedFiles)
-
-        // Update the service with the latest selected files (if needed)
-        ScreenUnlockForegroundService.startService(this)
+    private fun openFilePicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "text/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        requestReadPermissionLauncher.launch(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +134,7 @@ class MainActivity : AppCompatActivity() {
 
         // Check and request the SYSTEM_ALERT_WINDOW permission on devices with Android 12 (API 31) and above
         requestOverlayPermission()
+        requestPermissionsIfNeeded()
 
         // Init file adapter and recycler view for selected files
         selectedFiles = getSelectedFilesFromSharedPreferences(this)
@@ -85,49 +143,61 @@ class MainActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = fileAdapter
 
-        val filePickerLauncher =
-            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == Activity.RESULT_OK) {
-                    val data = result.data
-                    data?.let {
-                        val clipData = it.clipData
-                        if (clipData != null) {
-                            for (i in 0 until clipData.itemCount) {
-                                val fileUri = clipData.getItemAt(i).uri
-                                val fileName = getFileName(fileUri)
-                                if (!fileAlreadyExists(fileName)) {
-                                    selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
-                                }
-                            }
-                        } else {
-                            val uri = it.data
-                            uri?.let { it1 ->
-                                val fileName = getFileName(it1)
-                                if (!fileAlreadyExists(fileName)) {
-                                    selectedFiles.add(SelectedFile(it1.toString(), fileName))
-                                }
-                            }
-                        }
-                        fileAdapter.notifyDataSetChanged()
-
-                        // Save the selected files directly to SharedPreferences
-                        saveSelectedFilesToSharedPreferences(this, selectedFiles)
-
-                        // Update the service with the latest selected files when a file is added
-                        ScreenUnlockForegroundService.startService(this)
-                    }
-                }
-            }
-
-        val pickIntent = Intent(Intent.ACTION_GET_CONTENT)
-        pickIntent.type = "text/*"
-        pickIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-
         findViewById<View>(R.id.selectFilesButton).setOnClickListener {
-            filePickerLauncher.launch(Intent.createChooser(pickIntent, "Select Files"))
+            openFilePicker()
         }
 
     }
+
+    private val filePickerLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val data: Intent? = result.data
+
+                data?.data?.let { uri ->
+                    // Here, "uri" is the content URI of the selected file
+                    // You can read or parse the content using ContentResolver
+
+                    // Example: Read text content from the selected file
+                    val contentResolver = contentResolver
+                    val inputStream = contentResolver.openInputStream(uri)
+                    val text = inputStream?.bufferedReader().use { it?.readText() }
+                    inputStream?.close()
+
+                    // Now you have the text content from the selected file
+                    // Do whatever you need with it
+                    Log.d(TAG, text!!)
+                }
+
+                data?.let {
+                    val clipData = it.clipData
+                    if (clipData != null) {
+                        for (i in 0 until clipData.itemCount) {
+                            val fileUri = clipData.getItemAt(i).uri
+                            val fileName = getFileName(fileUri)
+                            if (!fileAlreadyExists(fileName)) {
+                                selectedFiles.add(SelectedFile(fileUri.toString(), fileName))
+                            }
+                        }
+                    } else {
+                        val uri = it.data
+                        uri?.let { it1 ->
+                            val fileName = getFileName(it1)
+                            if (!fileAlreadyExists(fileName)) {
+                                selectedFiles.add(SelectedFile(it1.toString(), fileName))
+                            }
+                        }
+                    }
+                    fileAdapter.notifyDataSetChanged()
+
+                    // Save the selected files directly to SharedPreferences
+                    saveSelectedFilesToSharedPreferences(this, selectedFiles)
+
+                    // Update the service with the latest selected files when a file is added
+                    ScreenUnlockForegroundService.startService(this)
+                }
+            }
+        }
 
     private fun fileAlreadyExists(fileName: String): Boolean {
         for (file in selectedFiles) {
@@ -136,6 +206,33 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return false
+    }
+
+    private fun requestPermissionsIfNeeded() {
+        if (EasyPermissions.hasPermissions(this, *permissions)) {
+            // All permissions are already granted, proceed with your app logic
+            // ...
+        } else {
+            // Request permissions
+            EasyPermissions.requestPermissions(
+                this,
+                "Your app needs these permissions for functionality.",
+                RC_PERMISSIONS,
+                *permissions
+            )
+        }
+    }
+
+    private fun onPermissionsDenied() {
+        // Handle the case when the user denied a permission
+        // You may show a message explaining why you need the permission and guide the user to grant it.
+        // Optionally, you can also show an AppSettingsDialog to allow the user to navigate to app settings and grant the permission.
+        if (EasyPermissions.somePermissionPermanentlyDenied(this, permissions.asList())) {
+            AppSettingsDialog.Builder(this).build().show()
+        } else {
+            // Show a message or take appropriate action for the denied permission
+            Toast.makeText(this, "Some permissions were denied.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun requestOverlayPermission() {

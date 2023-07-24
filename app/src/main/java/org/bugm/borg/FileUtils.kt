@@ -9,8 +9,8 @@ import org.bugm.borg.AppInitialization.PREFS_SELECTED_FILES
 
 fun saveSelectedFilesToSharedPreferences(context: Context, selectedFiles: List<SelectedFile>) {
     val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val editor = prefs.edit()
     val selectedFilesJson = Gson().toJson(selectedFiles)
+    val editor = prefs.edit()
     editor.putString(PREFS_SELECTED_FILES, selectedFilesJson)
     editor.apply()
 }
@@ -18,7 +18,10 @@ fun saveSelectedFilesToSharedPreferences(context: Context, selectedFiles: List<S
 fun getSelectedFilesFromSharedPreferences(context: Context): MutableList<SelectedFile> {
     val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     val selectedFilesJson = prefs.getString(PREFS_SELECTED_FILES, null)
-    return Gson().fromJson(
-        selectedFilesJson, object : TypeToken<MutableList<SelectedFile>>() {}.type
-    ) ?: mutableListOf()
+    return if (!selectedFilesJson.isNullOrEmpty()) {
+        val listType = object : TypeToken<MutableList<SelectedFile>>() {}.type
+        Gson().fromJson(selectedFilesJson, listType)
+    } else {
+        mutableListOf()
+    }
 }

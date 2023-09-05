@@ -8,7 +8,6 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.datatransport.runtime.firebase.transport.TimeWindow
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -67,27 +66,41 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         // Check if the cached data is available and not expired (within 30 minutes)
         val currentTimeMillis = System.currentTimeMillis()
         val expirationTimeMillis = TimeUnit.MINUTES.toMillis(30)
-        if (!cachedTaskItemsJson.isNullOrEmpty() && (currentTimeMillis - cachedTaskItemsTimestamp) < expirationTimeMillis) {
-            // Cached data is still valid, parse the JSON and update taskItems
+
+        if (!cachedTaskItemsJson.isNullOrEmpty()) {
+            // Parse the JSON and update taskItems
             val listType = object : TypeToken<List<TaskItem>>() {}.type
             val cachedTaskItems = Gson().fromJson<List<TaskItem>>(cachedTaskItemsJson, listType)
-            taskItems.clear()
-            taskItems.addAll(cachedTaskItems)
-            Log.d(TAG, "Using " + taskItems.size.toString() + " cached task items")
-        } else {
-            // Cached data has expired or doesn't exist, parse the files and update taskItems
-            parseSelectedFiles()
+            if (cachedTaskItems.isNotEmpty()) {
+                taskItems.clear()
+                taskItems.addAll(cachedTaskItems)
+                Log.d(TAG, "Using " + taskItems.size.toString() + " cached task items")
+            }
+        }
 
-            // Cache the parsed task items along with the current timestamp
-            val taskItemsJson = Gson().toJson(taskItems)
-            prefs.edit().putString(PREFS_TASK_ITEMS, taskItemsJson)
-                .putLong(PREFS_TASK_ITEMS_TIMESTAMP, currentTimeMillis).apply()
-
-            Log.d(TAG, "Parsed and cached " + taskItems.size.toString() + " task items")
+        if (taskItems.isEmpty()) {
+            reParseTaskItems(currentTimeMillis)
         }
 
         val reminderText = findViewById<TextView>(R.id.reminderTextView)
         reminderText.text = pickRandomItem(taskItems)
+
+        if ((currentTimeMillis - cachedTaskItemsTimestamp) > expirationTimeMillis) {
+            // Cache expired, refresh
+            reParseTaskItems(currentTimeMillis)
+        }
+    }
+
+    private suspend fun reParseTaskItems(ctm: Long) {
+        val prefs = getSharedPreferences(PREFS_TASK_ITEMS, Context.MODE_PRIVATE)
+        parseSelectedFiles()
+
+        // Cache the parsed task items along with the current timestamp
+        val taskItemsJson = Gson().toJson(taskItems)
+        prefs.edit().putString(PREFS_TASK_ITEMS, taskItemsJson)
+            .putLong(PREFS_TASK_ITEMS_TIMESTAMP, ctm).apply()
+
+        Log.d(TAG, "Parsed and cached " + taskItems.size.toString() + " task items")
     }
 
     private suspend fun parseSelectedFiles() {
@@ -143,10 +156,9 @@ class ReminderActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private fun parseDueDate(line: String): String? {
         // Define your custom parsing logic here to extract the due date from the line.
         // For example, if the due date is represented as "DEADLINE: yyyy-mm-dd", you can use:
-        // val dueDatePattern = Regex("DEADLINE: (\\d{4}-\\d{2}-\\d{2})")
-        // val match = dueDatePattern.find(line)
-        // return match?.groupValues?.get(1)
-        return null
+        val dueDatePattern = Regex("DEADLINE: (\\d{4}-\\d{2}-\\d{2})")
+        val match = dueDatePattern.find(line)
+        return match?.groupValues?.get(1)
     }
 
     private fun pickRandomItem(taskItems: List<TaskItem>): String? {
